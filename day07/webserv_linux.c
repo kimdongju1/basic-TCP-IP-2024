@@ -69,7 +69,7 @@ void* request_handler(void *arg)
 		send_error(clnt_write);
 		fclose(clnt_read);
 		fclose(clnt_write);
-		return;
+		return NULL;
 	}
 
 	strcpy(method, strtok(req_line, " /"));
@@ -80,11 +80,12 @@ void* request_handler(void *arg)
 		send_error(clnt_write);
 		fclose(clnt_read);
 		fclose(clnt_write);
-		return;
+		return NULL;
 	}
 
 	fclose(clnt_read);
 	send_data(clnt_write, ct, file_name);
+	return NULL;
 }
 
 void send_data(FILE* fp, char* ct, char* file_name)
@@ -96,28 +97,51 @@ void send_data(FILE* fp, char* ct, char* file_name)
 	char buf[BUF_SIZE];
 	FILE* send_file;
 
+	char webpage[] = "HTTP/1.1 200 OK\r\n"
+									"Server:Linux Web Server\r\n"
+									"Content-Type: text/html; charset=UTF-8\r\n\r\n"
+									"<!DOCTYPE html>\r\n"
+									"<html><head><title> My Web Page </title>\r\n"
+									"<style>body {background-color: #FFFF00 }</style></head>\r\n"
+									"<body><center><h1>Hello world!!</h1><br>\r\n"
+									"<img src=\"game.jpg\"></center></body></html>\r\n";
+
 	sprintf(cnt_type, "Content-type:%s\r\n\r\n", ct);
-	send_file=fopen(file_name, "r");
-	if(send_file==NULL)
+
+	if(strcmp(file_name, "index.html")== 0 || strlen(file_name) == 0)
 	{
-		send_error(fp);
-		return;
+		/* 헤더 정보 전송 */
+		fputs(protocol, fp);
+		fputs(server, fp);
+		fputs(cnt_len, fp);
+		fputs(cnt_type, fp);
+
+		fputs(webpage, fp);
 	}
-
-	/* 헤더 정보 전송 */
-	fputs(protocol, fp);
-	fputs(server, fp);
-	fputs(cnt_len, fp);
-	fputs(cnt_type, fp);
-
-	/* 요청 데이터 전송 */
-	while(fgets(buf, BUF_SIZE, send_file)!=NULL)
+	else
 	{
-		fputs(buf, fp);
+		send_file=fopen(file_name, "r");
+		if(send_file==NULL)
+		{
+			send_error(fp);
+			return;
+		}
+
+		/* 헤더 정보 전송 */
+		fputs(protocol, fp);
+		fputs(server, fp);
+		fputs(cnt_len, fp);
+		fputs(cnt_type, fp);
+
+		/* 요청 데이터 전송 */
+		while(fgets(buf, BUF_SIZE, send_file)!=NULL)
+		{
+			fputs(buf, fp);
+			fflush(fp);
+		}
 		fflush(fp);
+		fclose(fp);
 	}
-	fflush(fp);
-	fclose(fp);
 }
 
 char* content_type(char* file)
@@ -148,6 +172,7 @@ void send_error(FILE* fp)
 	fputs(server, fp);
 	fputs(cnt_len, fp);
 	fputs(cnt_type, fp);
+	fputs(content, fp);
 	fflush(fp);
 }
 
